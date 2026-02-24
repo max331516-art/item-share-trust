@@ -1,13 +1,64 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Camera, CreditCard, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ItemCard from "@/components/ItemCard";
-import { categories, mockItems } from "@/lib/mock-data";
+import { categories } from "@/lib/mock-data";
+import type { Item } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-rental.jpg";
 
+const fetchPopularItems = async (): Promise<Item[]> => {
+  const { data: items } = await supabase
+    .from("items")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  if (!items || items.length === 0) return [];
+
+  const ownerIds = [...new Set((items as any[]).map((i) => i.owner_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("user_id", ownerIds);
+
+  const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+
+  return (items as any[]).map((item) => {
+    const profile = profileMap.get(item.owner_id);
+    return {
+      id: item.id,
+      title: item.title,
+      category: item.category,
+      description: item.description || "",
+      pricePerDay: item.price_per_day,
+      deposit: item.deposit,
+      minDays: item.min_days,
+      images: item.images?.length > 0 ? item.images : ["/placeholder.svg"],
+      owner: {
+        name: profile?.name || "Пользователь",
+        avatar: profile?.avatar_url || "",
+        rating: Number(profile?.rating) || 0,
+        rentalsCount: Number(profile?.rentals_count) || 0,
+      },
+      location: item.location || "",
+      rating: Number(item.rating) || 0,
+      reviewsCount: Number(item.reviews_count) || 0,
+      condition: "Хорошее",
+    };
+  });
+};
+
 const Index = () => {
+  const { data: popularItems = [] } = useQuery({
+    queryKey: ["popular-items"],
+    queryFn: fetchPopularItems,
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -24,7 +75,7 @@ const Index = () => {
                 <span className="text-primary">у соседей</span>
               </h1>
               <p className="mt-5 max-w-lg text-lg text-muted-foreground">
-                Зачем покупать дрель на один раз? Возьми у того, кто рядом. 
+                Зачем покупать дрель на один раз? Возьми у того, кто рядом.
                 Безопасно, с депозитом и фотофиксацией.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -51,11 +102,7 @@ const Index = () => {
               </div>
             </div>
             <div className="animate-fade-in [animation-delay:200ms] opacity-0">
-              <img
-                src={heroImage}
-                alt="P2P аренда вещей"
-                className="rounded-2xl card-shadow"
-              />
+              <img src={heroImage} alt="P2P аренда вещей" className="rounded-2xl card-shadow" />
             </div>
           </div>
         </div>
@@ -64,9 +111,7 @@ const Index = () => {
       {/* Categories */}
       <section className="border-t bg-card py-16">
         <div className="container">
-          <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">
-            Категории
-          </h2>
+          <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Категории</h2>
           <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             {categories.map((cat) => (
               <Link
@@ -86,9 +131,7 @@ const Index = () => {
       {/* How it works */}
       <section className="py-16">
         <div className="container">
-          <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">
-            Как это работает
-          </h2>
+          <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Как это работает</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-4">
             {[
               { icon: <Search className="h-6 w-6" />, title: "Найди", desc: "Выбери вещь в каталоге и забронируй даты" },
@@ -112,25 +155,25 @@ const Index = () => {
       </section>
 
       {/* Popular items */}
-      <section className="border-t bg-card py-16">
-        <div className="container">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">
-              Популярное
-            </h2>
-            <Link to="/catalog">
-              <Button variant="ghost" className="text-primary">
-                Все вещи <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
-            </Link>
+      {popularItems.length > 0 && (
+        <section className="border-t bg-card py-16">
+          <div className="container">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Популярное</h2>
+              <Link to="/catalog">
+                <Button variant="ghost" className="text-primary">
+                  Все вещи <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {popularItems.map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </div>
           </div>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {mockItems.slice(0, 6).map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="py-16">
