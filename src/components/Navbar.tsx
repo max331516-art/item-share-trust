@@ -1,10 +1,25 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Menu, X } from "lucide-react";
+import { Search, Plus, Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
@@ -13,9 +28,7 @@ const Navbar = () => {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <span className="text-lg font-bold text-primary-foreground">R</span>
           </div>
-          <span className="font-display text-xl font-bold text-foreground">
-            RentIt
-          </span>
+          <span className="font-display text-xl font-bold text-foreground">RentIt</span>
         </Link>
 
         {/* Desktop */}
@@ -41,9 +54,34 @@ const Navbar = () => {
               Сдать вещь
             </Button>
           </Link>
-          <Button variant="outline" size="sm">
-            Войти
-          </Button>
+
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  <span className="max-w-[100px] truncate">
+                    {user.user_metadata?.name || user.email?.split("@")[0]}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="mr-2 h-4 w-4" />
+                  Профиль
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link to="/auth">
+              <Button variant="outline" size="sm">Войти</Button>
+            </Link>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -68,9 +106,24 @@ const Navbar = () => {
                 Сдать вещь
               </Button>
             </Link>
-            <Button variant="outline" size="sm" className="w-full">
-              Войти
-            </Button>
+            {user ? (
+              <>
+                <Link to="/profile" onClick={() => setMobileOpen(false)}>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <User className="mr-2 h-4 w-4" />
+                    Профиль
+                  </Button>
+                </Link>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => { handleSignOut(); setMobileOpen(false); }}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Выйти
+                </Button>
+              </>
+            ) : (
+              <Link to="/auth" onClick={() => setMobileOpen(false)}>
+                <Button variant="outline" size="sm" className="w-full">Войти</Button>
+              </Link>
+            )}
           </div>
         </div>
       )}
